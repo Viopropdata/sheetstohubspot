@@ -5,6 +5,9 @@ const NodeCache = require('node-cache');
 const session = require('express-session');
 const opn = require('open');
 const app = express();
+const fs = require ('fs')
+const { saveTokens } = require('./token-manager');
+
 
 const PORT = 3000;
 
@@ -103,15 +106,11 @@ app.get('/oauth-callback', async (req, res) => {
       return res.redirect(`/error?msg=${token.message}`);
     }
 
+
+
     // Once the tokens have been retrieved, use them to make a query
     // to the HubSpot API
-      res.send(`
-  <h2>✅ OAuth Successful!</h2>
-  <p>Here is your temporary access token — copy it and paste it into <code>test-upload.js</code>:</p>
-  <pre style="white-space: pre-wrap; word-break: break-word; background: #f1f1f1; padding: 10px;">${token}</pre>
-  <p><em>This token is short-lived. For production use, you'll want to use the refresh token system instead.</em></p>
-`);
-
+    res.send(`<h2>✅ OAuth successful</h2><p>Your tokens have been saved. You may now close this tab.</p>`);
   }
 });
 
@@ -124,17 +123,26 @@ const exchangeForTokens = async (userId, exchangeProof) => {
     const responseBody = await request.post('https://api.hubapi.com/oauth/v1/token', {
       form: exchangeProof
     });
-    // Usually, this token data should be persisted in a database and associated with
-    // a user identity.
+    
     const tokens = JSON.parse(responseBody);
     refreshTokenStore[userId] = tokens.refresh_token;
     accessTokenCache.set(userId, tokens.access_token, Math.round(tokens.expires_in * 0.75));
 
     console.log('       > Received an access token and refresh token');
+    
+    // Save the complete tokens object to token.json
+    saveTokens(tokens);
+    
     return tokens.access_token;
   } catch (e) {
-    console.error(`       > Error exchanging ${exchangeProof.grant_type} for access token`);
-    return JSON.parse(e.response.body);
+    console.error(`       > Error exchanging ${exchangeProof.grant_type} for access token`, e);
+    
+    // More robust error handling
+    if (e.response && e.response.body) {
+      return JSON.parse(e.response.body);
+    } else {
+      return { message: e.message || 'Unknown error occurred during token exchange' };
+    }
   }
 };
 
