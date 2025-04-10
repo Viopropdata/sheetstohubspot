@@ -201,39 +201,55 @@ const getContact = async (accessToken) => {
 //   Displaying information to the user   //
 //========================================//
 
-const displayContactName = (res, contact) => {
-    if (contact.status === 'error') {
-        res.write(`<p>Unable to retrieve contact! Error Message: ${contact.message}</p>`);
-        return;
-    }
-    const { firstname, lastname } = contact.properties;
-    res.write(`<p>Contact name: ${firstname.value} ${lastname.value}</p>`);
-};
-
-// Default user ID used for single-user applications
-const DEFAULT_USER_ID = 'default';
+const { readSheetData } = require('./readthasheet');
+const { uploadContactToHubspot } = require('./hubspot-upload');
+const { saveTokens } = require('./token-manager'); // If you want to save tokens again
 
 app.get('/', async (req, res) => {
-    res.setHeader('Content-Type', 'text/html');
-    res.write(`<h2>HubSpot OAuth 2.0 Quickstart App</h2>`);
-    
-    // In a sessionless app, we use a default user ID or read from a token/cookie if needed
-    if (isAuthorized(DEFAULT_USER_ID)) {
-        const accessToken = await getAccessToken(DEFAULT_USER_ID);
-        const contact = await getContact(accessToken);
-        res.write(`<h4>Access token: ${accessToken}</h4>`);
-        displayContactName(res, contact);
-    } else {
-        res.write(`<a href="/install"><h3>Install the app</h3></a>`);
+  res.setHeader('Content-Type', 'text/html');
+  res.write(`<h2>📤 Syncing contacts from sheet to HubSpot</h2>`);
+
+  if (isAuthorized(DEFAULT_USER_ID)) {
+    try {
+      const accessToken = await getAccessToken(DEFAULT_USER_ID); // Get the access token
+      const records = await readSheetData(); // Get data from the sheet
+
+      if (!records.length) {
+        res.write(`<p>❌ No records found in the sheet.</p>`);
+        return res.end();
+      }
+
+      let successCount = 0;
+      let failureCount = 0;
+
+      // Add log collection
+      let logDetails = '';
+
+      // Loop over the records and upload to HubSpot
+      for (const record of records) {
+        const result = await uploadContactToHubspot(record, accessToken);
+
+        // Capture detailed logs
+        if (result) {
+          successCount++;
+          logDetails += `<p>✅ Contact added: ${record['First Name']} ${record['Last Name']}</p>`;
+        } else {
+          failureCount++;
+          logDetails += `<p>❌ Skipped contact: ${record['First Name']} ${record['Last Name']}</p>`;
+        }
+      }
+
+      // Display the results and detailed logs in the browser
+      res.write(`<p>✅ Sync complete! ${successCount} succeeded, ${failureCount} failed.</p>`);
+      res.write(`<h3>Details:</h3>`);
+      res.write(logDetails); // Display detailed log
+
+    } catch (err) {
+      res.write(`<p>❌ Sync failed: ${err.message}</p>`);
     }
-    res.end();
-});
+  } else {
+    res.write(`<p>🔑 Not authorized. <a href="/install">Install the app</a></p>`);
+  }
 
-app.get('/error', (req, res) => {
-    res.setHeader('Content-Type', 'text/html');
-    res.write(`<h4>Error: ${req.query.msg}</h4>`);
-    res.end();
+  res.end();
 });
-
-app.listen(PORT, () => console.log(`=== Starting your app on http://localhost:${PORT} ===`));
-opn(`http://localhost:${PORT}`);
