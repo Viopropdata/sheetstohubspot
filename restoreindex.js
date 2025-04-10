@@ -105,13 +105,7 @@ app.get('/oauth-callback', async (req, res) => {
 
     // Once the tokens have been retrieved, use them to make a query
     // to the HubSpot API
-      res.send(`
-  <h2>✅ OAuth Successful!</h2>
-  <p>Here is your temporary access token — copy it and paste it into <code>test-upload.js</code>:</p>
-  <pre style="white-space: pre-wrap; word-break: break-word; background: #f1f1f1; padding: 10px;">${token}</pre>
-  <p><em>This token is short-lived. For production use, you'll want to use the refresh token system instead.</em></p>
-`);
-
+    res.redirect(`/`);
   }
 });
 
