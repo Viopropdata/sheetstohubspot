@@ -203,7 +203,6 @@ const getContact = async (accessToken) => {
 
 const { readSheetData } = require('./readthasheet');
 const { uploadContactToHubspot } = require('./hubspot-upload');
-const { saveTokens } = require('./token-manager'); // If you want to save tokens again
 
 app.get('/', async (req, res) => {
   res.setHeader('Content-Type', 'text/html');
