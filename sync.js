@@ -1,11 +1,8 @@
-// sync.js
-
 require('dotenv').config();
 const { readSheetData } = require('./readthasheet');
 const { uploadContactToHubspot } = require('./hubspot-upload');
-const { getValidAccessToken } = require('./token-manager');
 
-async function syncContacts() {
+async function syncContacts(accessToken) {
   try {
     const records = await readSheetData();
     if (!records.length) {
@@ -13,19 +10,18 @@ async function syncContacts() {
       return;
     }
 
-    const accessToken = await getValidAccessToken();
-    console.log(`🔐 Using access token: ${accessToken.substring(0, 10)}...`);
-
-    console.log(`🔄 Starting sync of ${records.length} records...`);
     let successCount = 0;
     let failureCount = 0;
 
-    for (const record of records) {
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
       const result = await uploadContactToHubspot(record, accessToken);
       if (result) {
         successCount++;
+        console.log(`✅ Successfully processed record ${i + 1}`);
       } else {
         failureCount++;
+        console.log(`❌ Failed to process record ${i + 1}`);
       }
     }
 
@@ -33,11 +29,6 @@ async function syncContacts() {
   } catch (err) {
     console.error('❌ Sync failed:', err.message);
   }
-}
-
-// Run the sync if this file is executed directly
-if (require.main === module) {
-  syncContacts();
 }
 
 module.exports = { syncContacts };
